@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sweeper 7 · Waste Tracking Robot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;600;800&family=Chivo+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#0d1215;--panel:#151d21;--panel2:#1b262b;--line:#26343b;--text:#e4ecee;--dim:#8a9ca3;--ok:#6fd3a0;--warn:#f2b04a;--bad:#ff6b5e;--info:#6cc4e0}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--text);font:400 15px/1.45 Chivo,system-ui,sans-serif}
+.num{font-family:"Chivo Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+.brand{font-weight:800;font-size:18px;margin-right:auto}
+.brand small{display:block;font-weight:400;font-size:13px;color:var(--dim)}
+.chip{display:flex;align-items:center;gap:8px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--panel2);font-size:14px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--ok)}
+.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}
+.dot{animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.dot{animation:none}}
+.batt{width:34px;height:15px;border:2px solid var(--dim);border-radius:3px;padding:1px;position:relative}
+.batt::after{content:"";position:absolute;right:-6px;top:3px;width:3px;height:5px;background:var(--dim);border-radius:0 2px 2px 0}
+.batt i{display:block;height:100%;background:var(--ok);border-radius:1px;width:80%}
+#banner{display:none;padding:10px 20px;background:var(--bad);color:#2a0805;font-weight:600}
+body.stopped #banner{display:block}
+main{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:16px;padding:16px 20px;max-width:1280px;margin:0 auto}
+@media (max-width:860px){main{grid-template-columns:1fr;padding:12px}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+h2{margin:0 0 10px;font-size:15px;font-weight:600;color:var(--dim)}
+.feed{position:relative;padding:0;overflow:hidden}
+.feed canvas{display:block;width:100%;aspect-ratio:16/9;background:#0a0f11}
+.feedbar{position:absolute;left:10px;top:10px;display:flex;gap:8px;font-size:13px}
+.feedbar span{background:rgba(13,18,21,.78);padding:3px 9px;border-radius:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:16px}
+.m{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+.m b{display:block;font-size:26px;font-weight:500;margin-top:2px}
+.m span{color:var(--dim);font-size:13px}
+.m u{text-decoration:none;font-size:13px;color:var(--dim)}
+.haz{grid-column:1/-1;border-color:var(--line)}
+.haz.on{border-color:var(--warn)}
+.haz b{font:600 16px/1.4 Chivo,sans-serif;color:var(--text)}
+.haz.on b{color:var(--warn)}
+.side{display:flex;flex-direction:column;gap:16px}
+.btns{display:grid;gap:10px}
+button{font:600 15px Chivo,sans-serif;padding:13px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer;text-align:left;transition:transform .08s}
+button:active{transform:scale(.98)}
+button:focus-visible{outline:2px solid var(--info);outline-offset:2px}
+button small{display:block;font-weight:400;color:var(--dim);margin-top:2px}
+#bOver.active{border-color:var(--info);background:#16313a}
+#bStop{background:var(--bad);border-color:var(--bad);color:#2a0805;font-size:17px;font-weight:800}
+#bStop small{color:#4a1510}
+#bStop.engaged{background:var(--panel2);color:var(--bad)}
+#bStop.engaged small{color:var(--dim)}
+#route{width:100%;display:block;background:var(--panel2);border-radius:8px;aspect-ratio:3/2}
+ul{list-style:none;margin:0;padding:0;font-size:14px;max-height:170px;overflow:auto}
+li{padding:6px 0;border-top:1px solid var(--line);display:flex;gap:10px}
+li:first-child{border-top:0}
+li time{color:var(--dim);flex:none}
+li.w{color:var(--warn)}li.b{color:var(--bad)}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Sweeper 7<small>Waste tracking robot</small></div>
+  <div class="chip" title="Battery"><div class="batt"><i id="battBar"></i></div><span class="num" id="battTxt">82%</span></div>
+  <div class="chip">Mode <strong id="modeTxt">Auto</strong></div>
+  <div class="chip"><span class="dot" id="connDot"></span><span id="connTxt">Connected</span><span class="num" id="lat" style="color:var(--dim)">38 ms</span></div>
+</header>
+<div id="banner" role="alert">Emergency stop engaged. Motors are locked until you release the stop.</div>
+<main>
+  <section>
+    <div class="panel feed">
+      <canvas id="cam" width="640" height="360" aria-label="Front camera feed with detected waste items"></canvas>
+      <img id="liveFeed" alt="Live camera feed" style="display:none;width:100%;aspect-ratio:16/9;object-fit:cover">
+      <div class="feedbar"><span>Front camera</span><span id="inView">0 in view</span></div>
+    </div>
+    <div class="grid">
+      <div class="m"><span>X position</span><b class="num" id="tx">0.0</b><u>meters</u></div>
+      <div class="m"><span>Y position</span><b class="num" id="ty">0.0</b><u>meters</u></div>
+      <div class="m"><span>Heading</span><b class="num" id="th">0°</b><u>from north</u></div>
+      <div class="m"><span>Speed</span><b class="num" id="ts">0.0</b><u>m/s</u></div>
+      <div class="m"><span>Collected</span><b class="num" id="tc">0</b><u>items this run</u></div>
+      <div class="m"><span>Bin fill</span><b class="num" id="tb">12%</b><u>capacity used</u></div>
+      <div class="m haz" id="hz"><span>Hazard alerts (<span id="hn">0</span> this run)</span><b id="ht">No hazards detected</b></div>
+    </div>
+  </section>
+  <aside class="side">
+    <div class="panel">
+      <h2>Controls</h2>
+      <div class="btns">
+        <button id="bOver" aria-pressed="false">Override<small>Take manual control from auto</small></button>
+        <button id="bStop">Emergency stop<small>Lock motors immediately</small></button>
+        <button id="bReset">Reset route<small>Return to start and clear the path</small></button>
+      </div>
+    </div>
+    <div class="panel"><h2>Route</h2><canvas id="route" width="300" height="200" aria-label="Route map with robot trail"></canvas></div>
+    <div class="panel"><h2>Event log</h2><ul id="log"></ul></div>
+  </aside>
+</main>
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)};
+var S={x:0,y:0,hd:90,v:0,wp:1,batt:82,bin:12,col:0,hz:0,mode:'Auto',stop:false,trail:[],conn:0,t:0};
+var WP=[[0,0],[24,0],[24,14],[6,14],[6,6],[0,6]];
+var TYPES=[{n:'Plastic bottle',c:'#6cc4e0',w:30,r:.55},{n:'Paper bag',c:'#6fd3a0',w:28,r:1},{n:'Can',c:'#6cc4e0',w:26,r:.6},{n:'Sharp debris',c:'#ff6b5e',w:16,r:.5,h:1}];
+function pick(){var t=Math.random()*100,a=0;for(var i=0;i<TYPES.length;i++){a+=TYPES[i].w;if(t<a)return TYPES[i]}return TYPES[0]}
+var objs=[];function spawn(o,far){o.p=far?Math.random():0;o.lane=Math.random();o.t=pick();o.al=false;o.conf=.78+Math.random()*.2;return o}
+for(var i=0;i<5;i++)objs.push(spawn({},true));
+function log(m,c){var li=document.createElement('li');if(c)li.className=c;var d=new Date();li.innerHTML='<time class="num">'+d.toTimeString().slice(0,8)+'</time><span>'+m+'</span>';var u=$('log');u.insertBefore(li,u.firstChild);while(u.children.length>30)u.removeChild(u.lastChild)}
+log('Route started in auto mode');
+
+/* controls */
+$('bOver').onclick=function(){if(S.stop)return;S.mode=S.mode==='Auto'?'Manual':'Auto';var m=S.mode==='Manual';this.classList.toggle('active',m);this.setAttribute('aria-pressed',m);this.firstChild.nodeValue=m?'Resume auto':'Override';this.lastChild.textContent=m?'Hand control back to the robot':'Take manual control from auto';log(m?'Operator override: manual mode':'Auto mode resumed')};
+$('bStop').onclick=function(){S.stop=!S.stop;document.body.classList.toggle('stopped',S.stop);this.classList.toggle('engaged',S.stop);this.firstChild.nodeValue=S.stop?'Release stop':'Emergency stop';this.lastChild.textContent=S.stop?'Unlock motors and continue':'Lock motors immediately';log(S.stop?'Emergency stop engaged':'Emergency stop released',S.stop?'b':'')};
+$('bReset').onclick=function(){S.x=0;S.y=0;S.hd=90;S.wp=1;S.trail=[];S.col=0;S.hz=0;S.bin=12;objs.forEach(function(o){spawn(o,true)});$('ht').textContent='No hazards detected';$('hz').classList.remove('on');log('Route reset to start')};
+
+/* sim */
+var last=performance.now(),sc=0,hzClear=0;
+function step(now){if(window.LIVE){last=now;requestAnimationFrame(step);return}var dt=Math.min((now-last)/1000,.1);last=now;S.t+=dt;
+ var run=!S.stop;S.v=run?(S.mode==='Auto'?.8:.5):0;
+ if(run){var w=WP[S.wp],dx=w[0]-S.x,dy=w[1]-S.y,d=Math.hypot(dx,dy);
+  if(d<.2){S.wp=(S.wp+1)%WP.length;if(S.wp===1){S.trail=[]}}
+  else{S.x+=dx/d*S.v*dt;S.y+=dy/d*S.v*dt;S.hd=(Math.atan2(dx,dy)*180/Math.PI+360)%360}
+  S.batt=Math.max(0,S.batt-dt*.03);sc+=S.v*dt;if(sc>.4){sc=0;S.trail.push([S.x,S.y]);if(S.trail.length>200)S.trail.shift()}}
+ /* connectivity */
+ if(Math.sin(S.t/9)>.9){if(S.conn===0){S.conn=1;log('Signal weak, video may lag','w')}}else if(S.conn===1){S.conn=0;log('Signal restored')}
+ /* objects */
+ var inview=0;
+ objs.forEach(function(o){o.p+=S.v*dt*.14;
+  if(o.t.h&&!o.al&&o.p>.5){o.al=true;S.hz++;hzClear=S.t+6;$('ht').textContent='Sharp debris ahead, '+(2+Math.round((1-o.p)*8))+' m. Routing around it.';$('hz').classList.add('on');log('Hazard: sharp debris ahead','w')}
+  if(o.p>=1){if(!o.t.h&&S.mode==='Auto'){S.col++;S.bin=Math.min(100,S.bin+2)}spawn(o)}});
+ if(S.hz&&S.t>hzClear&&$('hz').classList.contains('on')){$('ht').textContent='No hazards detected';$('hz').classList.remove('on')}
+ if(S.batt<20&&!S.lowLogged){S.lowLogged=1;log('Battery low, return to dock soon','w')}
+ draw();ui();requestAnimationFrame(step)}
+
+var cv=$('cam'),g=cv.getContext('2d'),W=640,H=360,HZN=130;
+function draw(){
+ var sky=g.createLinearGradient(0,0,0,HZN);sky.addColorStop(0,'#10191d');sky.addColorStop(1,'#1d2a2f');g.fillStyle=sky;g.fillRect(0,0,W,HZN);
+ var fl=g.createLinearGradient(0,HZN,0,H);fl.addColorStop(0,'#212b2e');fl.addColorStop(1,'#2d3a3d');g.fillStyle=fl;g.fillRect(0,HZN,W,H-HZN);
+ g.strokeStyle='rgba(138,156,163,.16)';g.lineWidth=1;
+ for(var i=-8;i<=8;i++){g.beginPath();g.moveTo(W/2+i*10,HZN);g.lineTo(W/2+i*130,H);g.stroke()}
+ var off=(S.t*S.v*.35)%1;
+ for(var k=0;k<8;k++){var q=((k+off)/8),y=HZN+(H-HZN)*Math.pow(q,2);g.beginPath();g.moveTo(0,y);g.lineTo(W,y);g.stroke()}
+ var sorted=objs.slice().sort(function(a,b){return a.p-b.p}),tgt=null,n=0;
+ sorted.forEach(function(o){if(!o.t.h&&o.p>.25&&o.p<.98)tgt=o});
+ sorted.forEach(function(o){
+  var p=o.p,sy=HZN+20+(H-HZN-50)*p,s=12+78*p,sx=W/2+(o.lane-.5)*W*(.3+1.1*p);
+  g.fillStyle=o.t.h?'#8a3b34':(o.t.n==='Paper bag'?'#b59a73':'#6d8c99');
+  g.beginPath();g.roundRect?g.roundRect(sx-s*.4,sy-s*.5,s*.8,s,s*.15):g.rect(sx-s*.4,sy-s*.5,s*.8,s);g.fill();
+  if(p<.12)return;n++;
+  var bw=s*1.15,bh=s*1.2,bx=sx-bw/2,by=sy-bh/2,col=o.t.h?'#ff6b5e':(o===tgt?'#f2b04a':o.t.c);
+  g.strokeStyle=col;g.lineWidth=o===tgt?3:1.5;g.strokeRect(bx,by,bw,bh);
+  var lb=(o===tgt?'TARGET ':'')+o.t.n+' '+Math.round(o.conf*100)+'%';
+  g.font='600 11px Chivo,sans-serif';var tw=g.measureText(lb).width+10;
+  g.fillStyle=col;g.fillRect(bx,by-16,tw,16);g.fillStyle='#10171a';g.fillText(lb,bx+5,by-4)});
+ /* crosshair */
+ g.strokeStyle='rgba(228,236,238,.35)';g.lineWidth=1;g.beginPath();g.moveTo(W/2-10,H-24);g.lineTo(W/2+10,H-24);g.moveTo(W/2,H-34);g.lineTo(W/2,H-14);g.stroke();
+ if(S.stop){g.fillStyle='rgba(13,18,21,.55)';g.fillRect(0,0,W,H)}
+ $('inView').textContent=n+' in view'}
+
+var rc=$('route'),r=rc.getContext('2d');
+function drawRoute(){var w=300,h=200,sx=function(x){return 20+x*(w-40)/24},sy=function(y){return h-20-y*(h-40)/14};
+ r.clearRect(0,0,w,h);r.strokeStyle='#3a4b53';r.setLineDash([4,4]);r.lineWidth=1.5;r.beginPath();WP.forEach(function(p,i){i?r.lineTo(sx(p[0]),sy(p[1])):r.moveTo(sx(p[0]),sy(p[1]))});r.closePath();r.stroke();r.setLineDash([]);
+ r.strokeStyle='#6cc4e0';r.lineWidth=2.5;r.beginPath();S.trail.forEach(function(p,i){i?r.lineTo(sx(p[0]),sy(p[1])):r.moveTo(sx(p[0]),sy(p[1]))});r.lineTo(sx(S.x),sy(S.y));r.stroke();
+ r.fillStyle='#8a9ca3';r.fillRect(sx(0)-4,sy(0)-4,8,8);
+ r.fillStyle=S.stop?'#ff6b5e':'#f2b04a';r.beginPath();r.arc(sx(S.x),sy(S.y),6,0,7);r.fill()}
+
+var fr=0;
+function ui(){if(window.LIVE||++fr%4)return;
+ var b=Math.round(S.batt);$('battTxt').textContent=b+'%';var bb=$('battBar');bb.style.width=b+'%';bb.style.background=b<20?'var(--bad)':b<40?'var(--warn)':'var(--ok)';
+ $('modeTxt').textContent=S.mode;
+ var weak=S.conn===1;$('connDot').className='dot'+(weak?' warn':'');$('connTxt').textContent=weak?'Weak signal':'Connected';$('lat').textContent=(weak?180+Math.round(Math.random()*60):32+Math.round(Math.random()*14))+' ms';
+ $('tx').textContent=S.x.toFixed(1);$('ty').textContent=S.y.toFixed(1);$('th').textContent=Math.round(S.hd)+'°';$('ts').textContent=S.v.toFixed(1);
+ $('tc').textContent=S.col;$('tb').textContent=Math.round(S.bin)+'%';$('hn').textContent=S.hz;drawRoute()}
+requestAnimationFrame(step);
+})();
+</script>
+<script>
+/* Live mode: talks to the FastAPI server. If the server is off, the demo simulation keeps running. */
+(function(){
+var API=location.port==='8000'?'':'http://localhost:8000';
+var $=function(i){return document.getElementById(i)};
+var bO=$('bOver'),bS=$('bStop'),bR=$('bReset'),feed=$('liveFeed'),cam=$('cam'),cur={};
+window.LIVE=false;
+function post(c){fetch(API+'/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:c})})
+ .then(function(r){return r.ok?r.json():null}).then(function(d){if(d)render(d)}).catch(function(){})}
+function wrap(b,fn){var old=b.onclick;b.onclick=function(e){window.LIVE?fn():old.call(b,e)}}
+wrap(bO,function(){post(cur.mode==='Manual'?'resume_auto':'override')});
+wrap(bS,function(){post(cur.emergency_stop?'release_stop':'emergency_stop')});
+wrap(bR,function(){post('reset_route')});
+function render(d){cur=d;var b=Math.round(d.battery),man=d.mode==='Manual';
+ $('battTxt').textContent=b+'%';$('battBar').style.width=b+'%';$('modeTxt').textContent=d.mode;
+ bO.classList.toggle('active',man);bO.setAttribute('aria-pressed',man);
+ bO.firstChild.nodeValue=man?'Resume auto':'Override';bO.lastChild.textContent=man?'Hand control back to the robot':'Take manual control from auto';
+ bS.classList.toggle('engaged',d.emergency_stop);document.body.classList.toggle('stopped',d.emergency_stop);
+ bS.firstChild.nodeValue=d.emergency_stop?'Release stop':'Emergency stop';bS.lastChild.textContent=d.emergency_stop?'Unlock motors and continue':'Lock motors immediately';
+ $('tx').textContent=d.coordinates.x.toFixed(1);$('ty').textContent=d.coordinates.y.toFixed(1);
+ $('ts').textContent=(d.status==='Navigating'&&!d.emergency_stop)?'0.8':'0.0';
+ $('inView').textContent=d.status;
+ var hz=d.status==='Hazard Detected';$('hz').classList.toggle('on',hz);
+ $('hz').firstElementChild.textContent='Hazard alerts';$('ht').textContent=hz?'Hazard detected by the camera':'No hazards detected';
+ $('log').innerHTML=d.log_events.map(function(e){return '<li class="'+(e.level==='warning'?'w':e.level==='critical'?'b':'')+'"><time class="num">'+new Date(e.timestamp).toTimeString().slice(0,8)+'</time><span>'+e.message+'</span></li>'}).join('')}
+function poll(){var t=performance.now();
+ fetch(API+'/api/telemetry').then(function(r){return r.json()}).then(function(d){
+  if(!window.LIVE){window.LIVE=true;feed.src=API+'/api/video';feed.style.display='block';cam.style.display='none';$('connDot').className='dot';$('connTxt').textContent='Connected'}
+  $('lat').textContent=Math.round(performance.now()-t)+' ms';render(d)})
+ .catch(function(){if(window.LIVE){window.LIVE=false;feed.removeAttribute('src');feed.style.display='none';cam.style.display='block'}})}
+setInterval(poll,1000);poll();
+})();
+</script>
+</body>
+</html>
